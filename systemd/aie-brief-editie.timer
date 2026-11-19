@@ -1,0 +1,9 @@
+[Unit]
+Description=aie-brief: editie (zondag 08:00 NL)
+
+[Timer]
+OnCalendar=Sun *-*-* 08:00:00 Europe/Amsterdam
+Persistent=true
+
+[Install]
+WantedBy=timers.target

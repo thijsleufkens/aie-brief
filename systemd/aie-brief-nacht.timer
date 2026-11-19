@@ -1,0 +1,9 @@
+[Unit]
+Description=aie-brief: nacht (01:00 NL)
+
+[Timer]
+OnCalendar=*-*-* 01:00:00 Europe/Amsterdam
+Persistent=true
+
+[Install]
+WantedBy=timers.target
