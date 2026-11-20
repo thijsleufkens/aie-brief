@@ -32,5 +32,9 @@ BRIEF_NAAM = os.environ.get("AIE_NAAM", "AIE-brief")
 MAX_WOORDEN = 45_000          # langere transcripten worden afgekapt
 MAX_POGINGEN = 5              # nachten zonder transcript voordat we opgeven
 EERSTE_RUN_AANTAL = 12        # eerste run: alleen de nieuwste talks, de rest genegeerd
-BLOK_SECONDEN = 60
-PAUZE_S = float(os.environ.get("AIE_PAUZE_S", "20"))  # tussen transcript-ophaalacties (rate-limit)            # [mm:ss]-marker per minuut transcript
+BLOK_SECONDEN = 60            # [mm:ss]-marker per minuut transcript
+PAUZE_S = float(os.environ.get("AIE_PAUZE_S", "20"))          # tussen transcripten (rate-limit)
+NACHTBUDGET = int(os.environ.get("AIE_NACHTBUDGET", "12"))    # max nieuwe transcripten per nacht
+# "zelf": de server haalt de transcripten. "extern": een andere machine levert ze (zie extern.py),
+# de nacht vat alleen samen wat al binnen is.
+TRANSCRIPTEN = os.environ.get("AIE_TRANSCRIPTEN", "zelf")

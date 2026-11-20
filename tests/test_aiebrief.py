@@ -1,7 +1,7 @@
 import json
 from datetime import date
 
-from aiebrief import bron, cli, db, mail, samenvat
+from aiebrief import bron, cli, config, db, mail, samenvat
 
 LIJST = {"entries": [
     {"id": "AAA", "title": "Build an Eval | Ada Lovelace", "duration": 1346.0},
@@ -152,3 +152,40 @@ def test_transcript_wordt_bewaard(tmp_path):
     r = db.te_doen(con)[0]
     assert r["transcript"] == "[00:00] hoi" and r["duur_s"] == 61
     db.open_db(tmp_path / "t.db")  # migratie is idempotent
+
+
+def test_wachtrij_en_lever(tmp_path):
+    import json
+    from aiebrief import extern
+    con = db.open_db(tmp_path / "x.db")
+    for vid in ("A", "B", "C", "D"):
+        db.voeg_toe(con, vid, "t")
+    db.bewaar_transcript(con, "D", "[00:00] al binnen", 60, 2, False)
+    assert [v["id"] for v in extern.wachtrij(con, 2)] == ["A", "B"]
+    regels = [json.dumps({"id": "A", "snippets": [[0, 2, "hallo daar"], [61, 3, "verder"]]}),
+              json.dumps({"id": "B", "geen": "NoTranscriptFound"}),
+              json.dumps({"id": "ONBEKEND", "snippets": [[0, 1, "x"]]}),
+              json.dumps({"id": "D", "snippets": [[0, 1, "overschrijft niet"]]}),
+              json.dumps({"klaar": True})]
+    assert extern.lever(con, regels) == (1, 1, "klaar")
+    rij = {r["id"]: r for r in con.execute("SELECT * FROM video")}
+    assert rij["A"]["transcript"].startswith("[00:00] hallo daar") and rij["A"]["duur_s"] == 64
+    assert rij["B"]["pogingen"] == 1 and rij["B"]["transcript"] is None
+    assert rij["D"]["transcript"] == "[00:00] al binnen"
+    assert extern.lever(con, [json.dumps({"id": "C", "snippets": [[0, 1, "x"]]})])[2] == "onvolledig"
+    assert extern.lever(con, [json.dumps({"geblokkeerd": True})])[2] == "geblokkeerd"
+
+
+def test_nacht_extern_haalt_zelf_niets(tmp_path, monkeypatch):
+    from aiebrief import cli
+    monkeypatch.setattr(config, "DB_PATH", tmp_path / "x.db")
+    monkeypatch.setattr(config, "TRANSCRIPTEN", "extern")
+    monkeypatch.setattr(config, "HEARTBEAT_DIR", "")
+    monkeypatch.setattr(cli, "ontdek", lambda *a: 0)
+    monkeypatch.setattr(bron, "haal_lijst", lambda *a: [])
+    monkeypatch.setattr(bron, "haal_transcript", lambda vid: (_ for _ in ()).throw(AssertionError("niet ophalen")))
+    monkeypatch.setattr(cli, "Qwen", lambda: None)
+    con = db.open_db(config.DB_PATH)
+    db.voeg_toe(con, "A", "t")
+    assert cli.nacht() == 0
+    assert con.execute("SELECT status FROM video WHERE id='A'").fetchone()[0] == "nieuw"

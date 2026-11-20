@@ -58,12 +58,35 @@ code, maakt een venv en zet twee systemd-timers aan: nacht 01:00 en zondag 08:00
 (Europe/Amsterdam). De units in `systemd/` zijn sjablonen: `deploy.sh` vult de installatiemap
 (`DEST`) en de gebruiker (`RUN_USER`) in uit `deploy.env`.
 
+## Transcripten van elders
+
+YouTube blokkeert transcripten vaak voor IP-adressen van datacenters. Dan kan een andere
+machine met een gewoon thuis-IP ze ophalen (een Raspberry Pi Zero is genoeg); samenvatten
+blijft op de server.
+
+1. Zet `AIE_TRANSCRIPTEN=extern` in `.env`. De nacht haalt dan zelf niets meer op en vat
+   alleen samen wat al geleverd is.
+2. Kopieer `extern/haal_transcripten.py` naar die machine en installeer
+   `youtube-transcript-api` in een venv.
+3. Laat die machine elke nacht, ruim vóór de nachtrun:
+
+   ```bash
+   ssh server 'aie-brief wachtrij' | venv/bin/python haal_transcripten.py | ssh server 'aie-brief lever'
+   ```
+
+   `wachtrij` zoekt nieuwe video's en geeft er maximaal `AIE_NACHTBUDGET` als JSON;
+   `lever` slaat de transcripten op. Met `HEARTBEAT_DIR` schrijft `lever` na een volledige
+   levering een heartbeat `aie-brief-transcripten`; stopt de ophaler halverwege of wordt ook dat
+   IP geblokkeerd, dan blijft die heartbeat uit en wordt bewaard wat al binnen was.
+   Beperk de SSH-sleutel van die machine met een `command=` in `authorized_keys` tot precies
+   deze twee commando's.
+
 ## Grenzen
 
 - Samenvattingen komen uit automatische ondertitels plus een klein model: details kunnen
   afwijken. De tijdstempels brengen je naar de bron.
 - YouTube kan het IP van een datacenter blokkeren voor transcripten. Dan faalt de nachtrun
-  zichtbaar (geen heartbeat).
+  zichtbaar (geen heartbeat); zie "Transcripten van elders".
 - Gebouwd voor één lezer en één kanaal tegelijk; een tweede kanaal is een tweede installatie
   met eigen `.env`.
 
